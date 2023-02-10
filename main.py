@@ -1,5 +1,6 @@
 #!/opt/homebrew/bin/python3
 import datetime
+import argparse
 import time
 import json
 import os
@@ -71,7 +72,10 @@ class PriceChecker:
 
     @staticmethod
     def _get_real_price(item_info: dict):
-        price = float(item_info['price']['p'])
+        if item_info['price']['sfp'] != '':
+            price = float(item_info['price']['sfp'])
+        else:
+            price = float(item_info['price']['p'])
         
         for activity in item_info['promotion']['activity']:
             if activity['text'] == '满减':
@@ -154,6 +158,12 @@ class PriceChecker:
             time.sleep(1)
         self._save_history_low_info(history_low_info)
 
+def parseArgument():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', action='store_true', help='list all item name')
+    args = vars(parser.parse_args())
+    return args
+
 def main():
     os.makedirs('logs', exist_ok=True)
     logger.add('logs/{time:YYYY-MM-DD}.log',
@@ -164,12 +174,18 @@ def main():
     with open('config.json', 'r') as f:
         config = json.load(f)
 
+    args = parseArgument()
+
     price_checker = PriceChecker(
         config['items'], config['proxy'], ServerJiang(config['push']['sendKey']))
-
-    price_checker.check_infos_update()
-    logger.info('{} 时完成检查'.format(datetime.datetime.now()))
-
+    
+    if args['l'] == True:
+        for item in price_checker.sku_ids:
+            print('{} - {}'.format(price_checker._get_item_name(int(item)),
+                  price_checker._get_real_price(price_checker._get_item_info(int(item)))))
+    else:
+        price_checker.check_infos_update()
+        logger.info('{} 时完成检查'.format(datetime.datetime.now()))
 
 if __name__ == '__main__':
     main()
